@@ -39,38 +39,86 @@ module.exports = function(
 
   var runActions = function(rule, syntheticEvent) {
     if (getShouldExecuteActions() && rule.actions) {
-      rule.actions.forEach(function(action) {
-        action.settings = action.settings || {};
 
-        var moduleExports;
 
-        try {
-          moduleExports = moduleProvider.getModuleExports(action.modulePath);
-        } catch (e) {
-          logger.error(getErrorMessage(action, rule, e.message, e.stack));
-          return;
-        }
+      // [func1, func2].reduce((p, f) => p.then(f), Promise.resolve());
 
-        if (typeof moduleExports !== 'function') {
-          logger.error(getErrorMessage(action, rule, MODULE_NOT_FUNCTION_ERROR));
-          return;
-        }
+      // rule.actions.reduce(function(reducedValue, action) {
+      //
+      // }, Promise.resolve());
 
-        var settings = replaceTokens(action.settings, syntheticEvent);
+      var done = function() {
+        logger.log('Rule "' + rule.name + '" fired.');
+        notifyMonitors('ruleCompleted', {
+          rule: rule
+        });
+      };
 
-        try {
-          moduleExports(settings, syntheticEvent);
-        } catch (e) {
-          logger.error(getErrorMessage(action, rule, e.message, e.stack));
-          return;
-        }
+      rule.actions.reduceRight(function(next, action) {
+        return function() {
+          action.settings = action.settings || {};
+
+          var moduleExports;
+
+          try {
+            moduleExports = moduleProvider.getModuleExports(action.modulePath);
+          } catch (e) {
+            logger.error(getErrorMessage(action, rule, e.message, e.stack));
+            next();
+          }
+
+          if (typeof moduleExports !== 'function') {
+            logger.error(getErrorMessage(action, rule, MODULE_NOT_FUNCTION_ERROR));
+            next();
+          }
+
+          var settings = replaceTokens(action.settings, syntheticEvent);
+
+          try {
+            var promise = moduleExports(settings, syntheticEvent);
+
+            if (promise) {
+              promise.then(next, next);
+            } else {
+              next();
+            }
+          } catch (e) {
+            logger.error(getErrorMessage(action, rule, e.message, e.stack));
+            next();
+          }
+        };
+      }, done);
+      //
+      //
+      // rule.actions.forEach(function(action) {
+      //   action.settings = action.settings || {};
+      //
+      //   var moduleExports;
+      //
+      //   try {
+      //     moduleExports = moduleProvider.getModuleExports(action.modulePath);
+      //   } catch (e) {
+      //     logger.error(getErrorMessage(action, rule, e.message, e.stack));
+      //     return;
+      //   }
+      //
+      //   if (typeof moduleExports !== 'function') {
+      //     logger.error(getErrorMessage(action, rule, MODULE_NOT_FUNCTION_ERROR));
+      //     return;
+      //   }
+      //
+      //   var settings = replaceTokens(action.settings, syntheticEvent);
+      //
+      //   try {
+      //     moduleExports(settings, syntheticEvent);
+      //   } catch (e) {
+      //     logger.error(getErrorMessage(action, rule, e.message, e.stack));
+      //     return;
+      //   }
       });
     }
 
-    logger.log('Rule "' + rule.name + '" fired.');
-    notifyMonitors('ruleCompleted', {
-      rule: rule
-    });
+
   };
 
   var checkConditions = function(rule, syntheticEvent) {

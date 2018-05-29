@@ -35,3 +35,4 @@ module.exports = function(url) {
   document.getElementsByTagName('head')[0].appendChild(script);
   return promise;
 };
+

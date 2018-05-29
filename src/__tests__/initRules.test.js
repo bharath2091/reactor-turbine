@@ -11,6 +11,7 @@
  ****************************************************************************************/
 
 'use strict';
+var Promise = require('@adobe/reactor-promise');
 var createModuleProvider = require('../createModuleProvider');
 var injectInitRules = require('inject-loader!../initRules');
 
@@ -103,7 +104,11 @@ describe('initRules', function() {
           name: TEST_ACTION1_NAME,
           displayName: TEST_ACTION1_DISPLAY_NAME,
           script: function(module) {
-            module.exports = jasmine.createSpy();
+            module.exports = function() {
+              return new Promise(function(resolve) {
+                resolve();
+              });
+            };
           }
         },
         extensionName);
@@ -589,4 +594,267 @@ describe('initRules', function() {
       expect(errorMessage).toStartWith(expectedErrorMessage);
     });
   });
+
+  // describe('async action processing', function() {
+  //   var logger;
+  //   var initRules;
+  //
+  //   beforeEach(function() {
+  //     logger = jasmine.createSpyObj('logger', ['log', 'error']);
+  //
+  //     moduleProvider.registerModule(
+  //       TEST_EVENT_PATH,
+  //       {
+  //         name: TEST_EVENT_NAME,
+  //         displayName: TEST_EVENT_DISPLAY_NAME,
+  //         script: function(module) {
+  //           module.exports = function(settings, trigger) { trigger(); };
+  //         }
+  //       });
+  //
+  //     moduleProvider.registerModule(
+  //       TEST_ACTION1_PATH,
+  //       {
+  //         name: TEST_ACTION1_NAME,
+  //         displayName: TEST_ACTION2_DISPLAY_NAME,
+  //         script: function(module) {
+  //           module.exports = new Promise(function(resolve, reject) {
+  //
+  //           });
+  //         }
+  //       }
+  //     );
+  //
+  //     rules = [
+  //       {
+  //         name: 'Test Rule',
+  //         events: [
+  //           {
+  //             modulePath: TEST_EVENT_PATH
+  //           }
+  //         ],
+  //         actions: [
+  //           {
+  //             modulePath: TEST_ACTION1_PATH
+  //           }
+  //         ]
+  //       }
+  //     ];
+  //
+  //     initRules = injectInitRules({
+  //       './logger': logger
+  //     });
+  //   });
+  //
+  //   it('logs an error when retrieving event module exports fails', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_EVENT_PATH,
+  //       {
+  //         name: TEST_EVENT_NAME,
+  //         displayName: TEST_EVENT_DISPLAY_NAME,
+  //         script: function() {
+  //           throw new Error('noob tried to divide by zero.');
+  //         }
+  //       });
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     var errorMessage = logger.error.calls.mostRecent().args[0];
+  //     var expectedErrorMessage = 'Failed to execute ' +
+  //       TEST_EVENT_DISPLAY_NAME + ' for Test Rule rule. noob tried to divide by zero.';
+  //     expect(errorMessage).toStartWith(expectedErrorMessage);
+  //   });
+  //
+  //   it('logs an error when the event module exports is not a function', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_EVENT_PATH,
+  //       {
+  //         name: TEST_EVENT_NAME,
+  //         displayName: TEST_EVENT_DISPLAY_NAME,
+  //         script: function(module) {
+  //           module.exports = {};
+  //         }
+  //       }
+  //     );
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     var errorMessage = logger.error.calls.mostRecent().args[0];
+  //     expect(errorMessage).toBe('Failed to execute ' + TEST_EVENT_DISPLAY_NAME +
+  //       ' for Test Rule rule. Module did not export a function.');
+  //   });
+  //
+  //   it('logs an error when executing event module exports fails', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_EVENT_PATH,
+  //       {
+  //         name: TEST_EVENT_NAME,
+  //         displayName: TEST_EVENT_DISPLAY_NAME,
+  //         script: function(module) {
+  //           module.exports = function() {
+  //             throw new Error('noob tried to divide by zero.');
+  //           };
+  //         }
+  //       }
+  //     );
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     var errorMessage = logger.error.calls.mostRecent().args[0];
+  //     var expectedErrorMessage = 'Failed to execute ' + TEST_EVENT_DISPLAY_NAME +
+  //       ' for Test Rule rule. noob tried to divide by zero.';
+  //     expect(errorMessage).toStartWith(expectedErrorMessage);
+  //   });
+  //
+  //   it('logs an error when retrieving condition module exports fails', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_CONDITION1_PATH,
+  //       {
+  //         name: TEST_CONDITION1_NAME,
+  //         displayName: TEST_CONDITION1_DISPLAY_NAME,
+  //         script: function() {
+  //           throw new Error('noob tried to divide by zero.');
+  //         }
+  //       }
+  //     );
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     var errorMessage = logger.error.calls.mostRecent().args[0];
+  //     var expectedErrorMessage = 'Failed to execute ' + TEST_CONDITION1_DISPLAY_NAME +
+  //       ' for Test Rule rule. noob tried to divide by zero.';
+  //     expect(errorMessage).toStartWith(expectedErrorMessage);
+  //   });
+  //
+  //   it('logs an error when the condition module exports is not a function', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_CONDITION1_PATH,
+  //       {
+  //         name: TEST_CONDITION1_NAME,
+  //         displayName: TEST_CONDITION1_DISPLAY_NAME,
+  //         script: function(module) {
+  //           module.exports = {};
+  //         }
+  //       }
+  //     );
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     var errorMessage = logger.error.calls.mostRecent().args[0];
+  //     expect(errorMessage).toBe('Failed to execute ' + TEST_CONDITION1_DISPLAY_NAME +
+  //       ' for Test Rule rule. Module did not export a function.');
+  //   });
+  //
+  //   it('logs an error when executing condition module exports fails', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_CONDITION1_PATH,
+  //       {
+  //         name: TEST_CONDITION1_NAME,
+  //         displayName: TEST_CONDITION1_DISPLAY_NAME,
+  //         script: function(module) {
+  //           module.exports = function() {
+  //             throw new Error('noob tried to divide by zero.');
+  //           };
+  //         }
+  //       }
+  //     );
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     var errorMessage = logger.error.calls.mostRecent().args[0];
+  //     var expectedErrorMessage = 'Failed to execute ' + TEST_CONDITION1_DISPLAY_NAME +
+  //       ' for Test Rule rule. noob tried to divide by zero.';
+  //     expect(errorMessage).toStartWith(expectedErrorMessage);
+  //   });
+  //
+  //   it('logs a message when the condition doesn\'t pass', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_CONDITION1_PATH,
+  //       {
+  //         name: TEST_CONDITION1_NAME,
+  //         displayName: TEST_CONDITION1_DISPLAY_NAME,
+  //         script: function(module) {
+  //           module.exports = function() {
+  //             return false;
+  //           };
+  //         }
+  //       }
+  //     );
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     expect(logger.log.calls.mostRecent().args[0]).toEqual(
+  //       'Condition ' + TEST_CONDITION1_DISPLAY_NAME + ' for rule Test Rule not met.');
+  //   });
+  //
+  //   it('logs a message when the negated condition doesn\'t pass', function() {
+  //     rules[0].conditions[0].negate = true;
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     expect(logger.log.calls.mostRecent().args[0]).toEqual(
+  //       'Condition ' + TEST_CONDITION1_DISPLAY_NAME + ' for rule Test Rule not met.');
+  //   });
+  //
+  //   it('logs an error when retrieving action module exports fails', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_ACTION1_PATH,
+  //       {
+  //         name: TEST_ACTION1_NAME,
+  //         displayName: TEST_ACTION1_DISPLAY_NAME,
+  //         script: function() {
+  //           throw new Error('noob tried to divide by zero.');
+  //         }
+  //       });
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     var errorMessage = logger.error.calls.mostRecent().args[0];
+  //     var expectedErrorMessage = 'Failed to execute ' +
+  //       TEST_ACTION1_DISPLAY_NAME + ' for Test Rule rule. noob tried to divide ' +
+  //       'by zero.';
+  //     expect(errorMessage).toStartWith(expectedErrorMessage);
+  //   });
+  //
+  //   it('logs an error when the action module exports is not a function', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_ACTION1_PATH,
+  //       {
+  //         name: TEST_ACTION1_NAME,
+  //         displayName: TEST_ACTION1_DISPLAY_NAME,
+  //         script: function(module) {
+  //           module.exports = {};
+  //         }
+  //       }
+  //     );
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     var errorMessage = logger.error.calls.mostRecent().args[0];
+  //     expect(errorMessage).toBe('Failed to execute ' + TEST_ACTION1_DISPLAY_NAME +
+  //       ' for Test Rule rule. Module did not export a function.');
+  //   });
+  //
+  //   it('logs an error when executing action module exports fails', function() {
+  //     moduleProvider.registerModule(
+  //       TEST_ACTION1_PATH,
+  //       {
+  //         name: TEST_ACTION1_NAME,
+  //         displayName: TEST_ACTION1_DISPLAY_NAME,
+  //         script: function(module) {
+  //           module.exports = function() {
+  //             throw new Error('noob tried to divide by zero.');
+  //           };
+  //         }
+  //       }
+  //     );
+  //
+  //     initRules(_satellite, rules, moduleProvider, replaceTokens, getShouldExecuteActions);
+  //
+  //     var errorMessage = logger.error.calls.mostRecent().args[0];
+  //     var expectedErrorMessage = 'Failed to execute ' + TEST_ACTION1_DISPLAY_NAME +
+  //       ' for Test Rule rule. noob tried to divide by zero.';
+  //     expect(errorMessage).toStartWith(expectedErrorMessage);
+  //   });
+  // });
 });
