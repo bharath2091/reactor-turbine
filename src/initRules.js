@@ -14,6 +14,8 @@ var logger = require('./logger');
 var normalizeSyntheticEvent = require('./normalizeSyntheticEvent');
 var buildRuleExecutionOrder = require('./buildRuleExecutionOrder');
 var createNotifyMonitors = require('./createNotifyMonitors');
+var createGetActionsChain = require('./createGetActionsChain');
+var executeChainsInOrder = require('./executeChainsInOrder');
 
 var MODULE_NOT_FUNCTION_ERROR = 'Module did not export a function.';
 
@@ -27,98 +29,49 @@ module.exports = function(
   var notifyMonitors = createNotifyMonitors(_satellite);
 
   var getModuleDisplayNameByRuleComponent = function(ruleComponent) {
-    var moduleDefinition = moduleProvider.getModuleDefinition(ruleComponent.modulePath);
-    return (moduleDefinition && moduleDefinition.displayName) || ruleComponent.modulePath;
+    var moduleDefinition = moduleProvider.getModuleDefinition(
+      ruleComponent.modulePath
+    );
+    return (
+      (moduleDefinition && moduleDefinition.displayName) ||
+      ruleComponent.modulePath
+    );
   };
 
-  var getErrorMessage = function(ruleComponent, rule, errorMessage, errorStack) {
+  var getErrorMessage = function(
+    ruleComponent,
+    rule,
+    errorMessage,
+    errorStack
+  ) {
     var moduleDisplayName = getModuleDisplayNameByRuleComponent(ruleComponent);
-    return 'Failed to execute ' + moduleDisplayName + ' for ' + rule.name + ' rule. ' +
-      errorMessage + (errorStack ? '\n' + errorStack : '');
+    return (
+      'Failed to execute ' +
+      moduleDisplayName +
+      ' for ' +
+      rule.name +
+      ' rule. ' +
+      errorMessage +
+      (errorStack ? '\n' + errorStack : '')
+    );
   };
 
+  var getActionsChain = createGetActionsChain(
+    moduleProvider,
+    replaceTokens,
+    getErrorMessage,
+    notifyMonitors,
+    MODULE_NOT_FUNCTION_ERROR
+  );
+
+  window.x = [];
   var runActions = function(rule, syntheticEvent) {
     if (getShouldExecuteActions() && rule.actions) {
+      var a = getActionsChain(rule, syntheticEvent);
+      x.push(a);
 
-
-      // [func1, func2].reduce((p, f) => p.then(f), Promise.resolve());
-
-      // rule.actions.reduce(function(reducedValue, action) {
-      //
-      // }, Promise.resolve());
-
-      var done = function() {
-        logger.log('Rule "' + rule.name + '" fired.');
-        notifyMonitors('ruleCompleted', {
-          rule: rule
-        });
-      };
-
-      rule.actions.reduceRight(function(next, action) {
-        return function() {
-          action.settings = action.settings || {};
-
-          var moduleExports;
-
-          try {
-            moduleExports = moduleProvider.getModuleExports(action.modulePath);
-          } catch (e) {
-            logger.error(getErrorMessage(action, rule, e.message, e.stack));
-            next();
-          }
-
-          if (typeof moduleExports !== 'function') {
-            logger.error(getErrorMessage(action, rule, MODULE_NOT_FUNCTION_ERROR));
-            next();
-          }
-
-          var settings = replaceTokens(action.settings, syntheticEvent);
-
-          try {
-            var promise = moduleExports(settings, syntheticEvent);
-
-            if (promise) {
-              promise.then(next, next);
-            } else {
-              next();
-            }
-          } catch (e) {
-            logger.error(getErrorMessage(action, rule, e.message, e.stack));
-            next();
-          }
-        };
-      }, done);
-      //
-      //
-      // rule.actions.forEach(function(action) {
-      //   action.settings = action.settings || {};
-      //
-      //   var moduleExports;
-      //
-      //   try {
-      //     moduleExports = moduleProvider.getModuleExports(action.modulePath);
-      //   } catch (e) {
-      //     logger.error(getErrorMessage(action, rule, e.message, e.stack));
-      //     return;
-      //   }
-      //
-      //   if (typeof moduleExports !== 'function') {
-      //     logger.error(getErrorMessage(action, rule, MODULE_NOT_FUNCTION_ERROR));
-      //     return;
-      //   }
-      //
-      //   var settings = replaceTokens(action.settings, syntheticEvent);
-      //
-      //   try {
-      //     moduleExports(settings, syntheticEvent);
-      //   } catch (e) {
-      //     logger.error(getErrorMessage(action, rule, e.message, e.stack));
-      //     return;
-      //   }
-      });
+      executeChainsInOrder(a, syntheticEvent);
     }
-
-
   };
 
   var checkConditions = function(rule, syntheticEvent) {
@@ -137,7 +90,9 @@ module.exports = function(
         }
 
         if (typeof moduleExports !== 'function') {
-          logger.error(getErrorMessage(condition, rule, MODULE_NOT_FUNCTION_ERROR));
+          logger.error(
+            getErrorMessage(condition, rule, MODULE_NOT_FUNCTION_ERROR)
+          );
           return;
         }
 
@@ -159,8 +114,16 @@ module.exports = function(
         }
 
         if ((!result && !condition.negate) || (result && condition.negate)) {
-          var conditionDisplayName = getModuleDisplayNameByRuleComponent(condition);
-          logger.log('Condition ' + conditionDisplayName + ' for rule ' + rule.name + ' not met.');
+          var conditionDisplayName = getModuleDisplayNameByRuleComponent(
+            condition
+          );
+          logger.log(
+            'Condition ' +
+              conditionDisplayName +
+              ' for rule ' +
+              rule.name +
+              ' not met.'
+          );
           notifyMonitors('ruleConditionFailed', {
             rule: rule,
             condition: condition
@@ -201,6 +164,7 @@ module.exports = function(
     var syntheticEventMeta = {
       $type: extensionName + '.' + moduleName,
       $rule: {
+        eventOrder: event.ruleOrder,
         id: rule.id,
         name: rule.name
       }
@@ -216,7 +180,10 @@ module.exports = function(
       notifyMonitors('ruleTriggered', {
         rule: rule
       });
-      checkConditions(rule, normalizeSyntheticEvent(syntheticEventMeta, syntheticEvent));
+      checkConditions(
+        rule,
+        normalizeSyntheticEvent(syntheticEventMeta, syntheticEvent)
+      );
     };
 
     try {
@@ -229,4 +196,3 @@ module.exports = function(
 
   buildRuleExecutionOrder(rules).forEach(initEventModule);
 };
-
